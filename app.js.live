@@ -1,0 +1,216 @@
+const fs = require('fs');
+const axios = require('axios');
+
+const qrcode = require('qrcode-terminal');
+const { MessageMedia } = require('whatsapp-web.js');
+
+const { Client } = require('whatsapp-web.js');
+const client = new Client();
+
+// Define a whitelist to store the chat names or message.from values
+const whitelist = new Set();
+
+client.on('qr', qr => {
+    qrcode.generate(qr, {small: true});
+});
+
+client.on('ready', () => {
+    console.log('Client is ready!');
+});
+
+client.initialize();
+
+// Require child_process module for spawning chat.js as a separate process
+const { spawn } = require('child_process');
+
+// Function to send message to chat.js process
+/*function sendMessageToChatJS(message) {
+  const chatJSProcess = spawn('node', ['chat.js']);
+  chatJSProcess.stdin.write(message);
+  chatJSProcess.stdin.end();
+}*/
+
+
+
+async function sendMessageToChatJS(message) {
+    return new Promise((resolve, reject) => {
+      const chatJSProcess = spawn('node', ['chat.js']);
+      let resulttext = '';
+  
+      // Listen for stdout data from chat.js
+      chatJSProcess.stdout.on('data', data => {
+        const output = data.toString().trim();
+        try {
+          const { resulttext } = JSON.parse(output);
+          console.log("chat.js resulttxt:", resulttext);
+          // Process the resulttext as needed
+          resolve(resulttext); // Resolve the promise with the resulttext
+        } catch (error) {
+          console.log("chat.js output:", output);
+          // Handle non-resulttext output if needed
+          resolve(output); // Resolve the promise with the resulttext
+        }
+      });
+  
+      // Listen for stderr data from chat.js
+      chatJSProcess.stderr.on('data', data => {
+        console.error(`chat.js error: ${data}`);
+        reject(data.toString().trim()); // Reject the promise with the error message
+      });
+  
+      // Listen for the 'close' event from chat.js
+      chatJSProcess.on('close', code => {
+        console.log(`chat.js process exited with code ${code}`);
+      });
+  
+      console.log(`chat.js write message: ${message}`);
+      chatJSProcess.stdin.write(message);
+      chatJSProcess.stdin.end();
+  
+      // Handle the case when no resulttext is received
+      setTimeout(() => {
+        reject('No resulttext received within the specified timeout.'); // Reject the promise with an error message
+      }, 180000); // Adjust the timeout value as needed
+    });
+}
+
+async function sendMessageWithMedia(chat) {
+    try {
+      const media = await MessageMedia.fromUrl('https://rickchow.info/blog/wp-content/uploads/2023/06/logo01.png');
+      chat.sendMessage(media);
+    } catch (error) {
+      console.error(error);
+    }
+}
+
+async function sendMessageWithSD(chat, promptMsg) {
+    try {
+		try {    
+		
+			const postData = {
+				"prompt": "(Masterpiece:1.1), detailed, intricate, colorful, "+promptMsg,
+				"seed": -1,
+				"sampler_name": "DDIM",
+				"steps": 30,
+				"width": 512,
+				"height": 512,
+				"restore_faces": true,
+				"negative_prompt": "(worst quality, low quality:1.3, NSFW:2)"
+			}
+
+			const headers = {
+				'Content-Type': 'application/json',
+				'Content-Length' : Buffer.byteLength(JSON.stringify(postData), 'utf8')
+			  };
+			  
+			const config = {
+				headers,
+				interceptor: {
+				  response: (response) => {
+					console.log(JSON.parse(response.data));
+					return response;
+				  }
+				}
+			  };
+			  
+			const sdurl = 'http://192.168.0.106:7860/sdapi/v1/txt2img';
+			const response = await axios.post(sdurl, JSON.stringify(postData), config)
+			.then(response => {
+				//console.log(response);
+				const base64Image = response.data.images[0];
+				const media = new MessageMedia('image/png', base64Image);
+				chat.sendMessage(media);
+			
+			  });
+
+		   
+		  } catch (error) {
+			if (error.code === 'ECONNRESET') {
+			  // Handle the "socket hang up" error
+			  console.error('Socket hang up error occurred. Please check your network connection.\n', error);
+			} else {
+			  // Handle other errors
+			  console.error('An error occurred:\n', error);
+			}
+		}
+      
+    } catch (error) {
+      console.error(error);
+    }
+}
+  
+ 
+client.on('message', async message => {
+	console.log(message.body);
+    let chat = await message.getChat(); // Obtain the chat object from the incoming message
+
+    if(message.hasMedia) {
+        try{
+            const media = await msg.downloadMedia();
+            // do something with the media data here
+            console.log(media.message.body);
+        } catch (error) {
+            console.log("Unidentified media - Sticker detected");
+            console.error(error);
+        }
+    }
+
+    if(message.body === '!ping') {
+		message.reply('pong');
+        //client.sendMessage(message.from, 'pong');
+	}
+    if(message.body === '!image'){
+         // Call the async function
+         sendMessageWithMedia(chat);
+    }
+
+     // Check if the user wants to enable AI mode
+    const lowercaseBody = message.body.toLowerCase();
+    if (lowercaseBody === 'ai on' || lowercaseBody === 'hey wise!') {
+        // Add the chat name or message.from value to the whitelist
+        whitelist.add(chat.name || message.from);
+        message.reply('AI mode enabled.');
+    }
+
+    // Check if the user wants to disable AI mode
+    if (lowercaseBody === 'ai off' || lowercaseBody === 'thanks wise!') {
+        // Remove the chat name or message.from value from the whitelist
+        whitelist.delete(chat.name || message.from);
+        message.reply('AI mode disabled.');
+    }
+
+      // Log the message to a text file
+
+    console.log("message.from : ", message.from);
+    console.log("Chat Name :" ,chat.name);
+    //if (chat.isGroup && chat.name.includes('Trade28') || message.from.includes('60319421') || message.from.includes('51912505')) {
+    // Check if the chat is whitelisted (AI mode enabled)
+    if (whitelist.has(chat.name || message.from) 
+        && lowercaseBody !== 'ai on' && lowercaseBody !== 'hey wise!' 
+        && lowercaseBody !== 'ai off' && lowercaseBody !== 'thanks wise!') {
+        try {            
+                fs.appendFileSync('messageLog.txt', `[User] ${message.from} ${chat.name} : ${message.body}\n`, 'utf8');
+
+                // Send the WhatsApp message to chat.js process and get the resulttext
+				let resulttext = "";
+				if(message.body.match(/draw.*of/)){
+					const prompttxt = message.body.split('of')[1].trim();
+					resulttext = await sendMessageToChatJS("please provide details and vivid description of " +prompttxt+" and limit the reply less than 150 words");
+					sendMessageWithSD(chat,resulttext);
+				}else{
+					resulttext = await sendMessageToChatJS(message.body);
+				}
+				
+                const finalResulttext = resulttext.startsWith('?') ? resulttext.substring(1) : resulttext;
+                const trimmedResulttext = finalResulttext.trim(); // Remove leading/trailing whitespace
+                console.log("message.reply = ", trimmedResulttext);
+                client.sendMessage(message.from, trimmedResulttext);
+                // Process the resulttext as needed
+            } catch (error) {
+                console.error("An error occurred:", error);
+                // Handle the error
+            }
+    }
+
+});
+ 
