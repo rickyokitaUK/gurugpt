@@ -6,8 +6,8 @@ const apiKey = 'altodock.com.hk.3ed74137e6f3f028c0746127b957043aecc173c2d0fb99e2
 const chatId = 'Altodock'; // replace with your actual chat ID obtained from ChatGPT dashboard
 const messageText = 'What can you do, rubbish?';
 //const url = 'https://rickchow.info/whatsapp/test.php';
-const url = 'http://chatbot.altodock.com:5001/v1/models/eachadea_vicuna-7b-1.1/completions';
-const chaturl = 'http://chatbot.altodock.com:5001/v1/models/eachadea_vicuna-7b-1.1/chat/completions';
+const url = 'https://api.openai.com/v1/completions';
+const chaturl = 'https://api.openai.com/v1/completions';
 const sdurl = 'http://127.0.0.1:7860/sdapi/v1/txt2img';
 
 // Define a list to store message-reply pairs

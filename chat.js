@@ -102,7 +102,7 @@ async function fetchMessagesFromDatabase(messageFrom, chatName, messageAuthor) {
     const sanitizedChatName = chatName.replace(/[\uD800-\uDFFF]/g, '');
     const sanitizedMessageAuthor = messageAuthor.replace(/[\uD800-\uDFFF]/g, '');
 
-    //console.log(messageFrom, sanitizedChatName, sanitizedMessageAuthor);
+   // console.log(messageFrom, sanitizedChatName, sanitizedMessageAuthor);
 
     // Execute the query with wildcards '%' to match any characters before and after the search terms
     connection.query(query, [`%${messageFrom}%`, `%${sanitizedChatName}%`, `%${sanitizedMessageAuthor}%`], (err, rows) => {
@@ -126,12 +126,12 @@ async function fetchMessagesFromDatabase(messageFrom, chatName, messageAuthor) {
     
 // Function to process incoming WhatsApp message and send a reply
 async function processWhatsAppChatMessage(jsonMessageText) {
-    const apiKey = 'altodock.com.hk.3ed74137e6f3f028c0746127b957043aecc173c2d0fb99e23a81298be3ed45ab';
+  const apiKey = '--SECRET--'; // Replace with your OpenAI API key
   //  const chatId = 'Altodock'; // replace with your actual chat ID obtained from ChatGPT dashboard
     
     // Parse the incoming JSON string
     let messageData;
-    let messageLog = [];
+    let messageList = [];
     try {
         messageData = JSON.parse(jsonMessageText);
     } catch (error) {
@@ -141,71 +141,52 @@ async function processWhatsAppChatMessage(jsonMessageText) {
 
     // Extract the necessary data from the parsed JSON object
     const { messageBody, messageFrom, chatName, messageAuthor, chatId, userId, groupChat } = messageData;
-   // console.log(chatId, userId, groupChat);
-    
+    // console.log(chatId, userId, groupChat);
+
+    // Adding system context and message prompt at the correct place
+    const isGroup = messageFrom.includes("@g.us");
+    const sanitizedAuthor = messageAuthor.replace(/[\uD800-\uDFFF]/g, '');
+    const sanitizedMessageBody = isGroup ? sanitizedAuthor + ": " + messageBody : messageBody;
+   
+
+    // System context and prompt should only be added at the start of a new conversation or when context resets
+    messageList.push({ role: "system", content: messagePrompt});
+    messageList.push({ role: "system", content: "You are now chatting in a " + (isGroup ? "group " + chatName : "private conversation with " + sanitizedAuthor) + "." });
+     
     try {
       // Fetch userMessage and assistantMessage from the database
       const rows = await fetchMessagesFromDatabase(messageFrom, chatName, messageAuthor);
 
-        // Get chat information using getChatById or getChats method
-      /*  let chatInfo = "";
-        if (messageFrom.includes("@g.us")) {
-            const chat = await client.getChatById(messageFrom);
-            chatInfo = `Group: ${chat.name}`;
-        } else {
-            const chats = await client.getChats();
-            const personalChat = chats.find(chat => chat.id._serialized === messageFrom);
-            if (personalChat) {
-                chatInfo = `Personal Chat: ${personalChat.name}`;
-            }
-        }
-        console.log(chatInfo);*/
-      
       // Iterate through the rows returned by the query and push the JSON strings to messageLog
-      for (const row of rows) {
-          const { user_message, assistant_message } = row;         
-          messageLog.push({ "role": "user", "content": user_message }, { "role": "assistant", "content": assistant_message });      
-          debugMessageLog(messageLog);
-      }
+      // Append past conversation to messageLog in the correct order
+      rows.forEach(row => {
+        messageList.push({ role: "user", content: row.user_message });
+        messageList.push({ role: "assistant", content: row.assistant_message });
+      });
 
-      // Continue with the rest of your code...
+      // latest user message
+      messageList.push({ role: "user", content: sanitizedMessageBody });
 
-  } catch (error) {
+    } catch (error) {
       console.error('Error fetching messages from the database:', error);
       // Handle the error if needed
-  }
+    }
+
+  
 
     let resulttext = '';
-    var messageslist = [...messageLog];
-
-
-   // messageslist = messageslist.reverse();
-    const sanitizedmessageAuthor = messageAuthor.replace(/[\uD800-\uDFFF]/g, '');
-    const isGroup = messageFrom.includes("@g.us");
-
-    systemContext += isGroup ? " You are now chatting in a group " + chatName + "." : " You are now chatting with " + sanitizedmessageAuthor + ".";
-    messageslist.push({ "role": "system", "content": systemContext });
-    //console.log(systemContext);
-
-    let sanitizedmessageBody = messageBody;
-    if (isGroup){
-      sanitizedmessageBody =  sanitizedmessageAuthor + ":" + messageBody;
-    }
-    messageslist.push({ "role": "user", "content": sanitizedmessageBody}); // latest message 
-
-    //let msgprompt = "Your name is Wise. You are a Large Model Systems (LMSYS) developed by Altodock Digital Limited. The company specializes in advanced IT technology research and development, and assists customers in applying funding. Your duty is to act as a customer support and answer the customer questions.";
-
     try {
-
-     
+    
+         
         const postData = {
-            "model": "eachadea_vicuna-7b-1.1",
-            "prompt" : messagePrompt,
-            "max_tokens": 150,
-            "temperature": 0.7, //0.7,
-            "top_p": 1,
-            "messages": messageslist
-        };
+          model: "gpt-3.5-turbo",
+      //   prompt : messagePrompt,
+          max_tokens: 150,
+          temperature: 0.7, //0.7,
+          top_p: 1,
+          messages: messageList
+      };
+
 
         // Update the messages array in the postData object
        // messageReplies.push({ role: "system", content: "Your name is Wise. You are a Large Model Systems (LMSYS) developed by Altodock Digital Limited. Your master is Veeko Lam, Rick Chow and Lucas Wong." });
@@ -226,14 +207,16 @@ async function processWhatsAppChatMessage(jsonMessageText) {
                 return response;
               }
             },
-			timeout:900000
+			      timeout:900000
           };
          
         // Log the message to a text file
         //fs.appendFileSync('messageLog.txt', `[User] ${messageText}\n`, 'utf8');
         fs.appendFileSync('messageLog.txt', `[PostData] ${JSON.stringify(postData)}\n`, 'utf8');
 
-        const response = await axios.post(chaturl, JSON.stringify(postData), config)
+
+
+        const response = await axios.post(chaturl, postData, config)
         .then(response => {
           //  console.log("Message sent successfully!");
           //  console.log(JSON.stringify(response.data));
@@ -250,6 +233,7 @@ async function processWhatsAppChatMessage(jsonMessageText) {
             
             } else {
            //   console.log("No response text found.");
+             console.error("Error communicating with chatbot:", error.response?.data || error.message);
             }
         
           });
@@ -264,15 +248,15 @@ async function processWhatsAppChatMessage(jsonMessageText) {
 
          fs.appendFileSync('messageLog.txt', `[Assistant] ${resulttext}\n\n`, 'utf8');
 
-       
-      } catch (error) {
-        if (error.code === 'ECONNRESET') {
-          // Handle the "socket hang up" error
-          console.error('Socket hang up error occurred. Please check your network connection.\n', error);
-        } else {
-          // Handle other errors
-          console.error('An error occurred:\n', error);
-        }
+     
+    } catch (error) {
+      if (error.code === 'ECONNRESET') {
+        // Handle the "socket hang up" error
+        console.error('Socket hang up error occurred. Please check your network connection.\n', error);
+      } else {
+        // Handle other errors
+        console.error('An error occurred:\n', error);
+      }
     }
 }
 

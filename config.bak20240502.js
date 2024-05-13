@@ -2,10 +2,10 @@ module.exports = {
     chatbotName: 'Guru',
     apiKey: 'sk-...lygb',
     chatId: 'Altodock',
-    url: 'https://api.openai.com/v1/chat/completions',
-    chatUrl: 'https://api.openai.com/v1/chat/completions',
-    sdurl: 'http://127.0.0.1:7860/sdapi/v1/txt2img',
-
+    url: 'http://chatbot.altodock.com:5001/v1/models/eachadea_vicuna-7b-1.1/completions',
+    chatUrl: 'http://chatbot.altodock.com:5001/v1/models/eachadea_vicuna-7b-1.1/chat/completions',
+    sdurl: 'http://192.168.0.106:7860/sdapi/v1/txt2img',
+    
     messageLogFilePath: 'messageStore.txt',
     messagePromptPath: 'messagePrompt.txt',
     systemContextPath: 'systemContext.txt',

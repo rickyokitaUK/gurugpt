@@ -6,7 +6,13 @@ const qrcode = require('qrcode-terminal');
 const { MessageMedia } = require('whatsapp-web.js');
 
 const { Client } = require('whatsapp-web.js');
-const client = new Client();
+const client = new Client({
+  webVersionCache: {
+    type: "remote",
+    remotePath:
+      "https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html",
+  },
+});
 
 // broadcast js
 const schedule = require('node-schedule');
@@ -24,8 +30,60 @@ const timeoutMax = 180000; // Adjust the timeout value as needed
 
 
 /** MAIN **/
+// Assuming client.initialize() needs to be awaited
+async function startClient() {
+  try {
+    await client.initialize();
+  } catch (error) {
+    console.error(error);
+    // Optionally add more detailed logging here
+  }
+}
 
-client.initialize();
+startClient();
+
+async function testingSendMessageToChatbot(message) {
+  const apiKey = '-- SECRET KEY --'; // Replace with your OpenAI API key
+  const url = config.chatUrl; //'https://api.openai.com/v1/chat/completions';
+  const messagePromptPath = config.messagePromptPath;
+  let messagePrompt = config.messagePrompt;
+
+
+  if (fs.existsSync(messagePromptPath)) {
+    messagePrompt = fs.readFileSync(messagePromptPath, 'utf8');
+  }
+
+  try {
+
+    var messageslist = [];
+
+    messageslist.push({ role: "system", content: messagePrompt}); // latest message 
+    messageslist.push({ role: "user", content: message}); // latest message 
+
+      const postData = {
+        model: "gpt-3.5-turbo",
+     //   prompt : messagePrompt,
+        max_tokens: 150,
+        temperature: 0.7, //0.7,
+        top_p: 1,
+        messages: messageslist
+    };
+
+      const response = await axios.post(url,postData, {
+          headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'Content-Type': 'application/json'
+          }
+      });
+
+      console.log("Chatbot response:", response.data.choices[0].message.content);
+  } catch (error) {
+      console.error("Error communicating with chatbot:", error.response?.data || error.message);
+  }
+}
+
+// Replace 'Hello, chatbot!' with the message you want to send
+//testingSendMessageToChatbot('Hello, Guru!');
 
 client.on('qr', qr => {
     qrcode.generate(qr, {small: true});
@@ -35,7 +93,7 @@ client.on('qr', qr => {
 client.on('ready', () => {
     console.log('Client is ready!');
 
-    broadcast.init(client); // Pass the client instance to the init function
+   broadcast.init(client); // Pass the client instance to the init function
     
     // Fetch subscribed chat IDs and populate the whitelist
     broadcast.fetchSubscribedChatIdsFromDatabase().then((subscribedChatIds) => {
