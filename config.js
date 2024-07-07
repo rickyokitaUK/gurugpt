@@ -29,6 +29,9 @@ module.exports = {
     startHour : 9,  // 9 AM  Broadcast starting time
     endHour : 18,   // 6 PM  Broadcast end time
 
+    //chatbot configuration
+    max_tokens: 500,
+
     // debug mode - ignore timing limited
     debug : true
 

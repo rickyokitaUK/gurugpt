@@ -11,6 +11,8 @@ const connection = mysql.createConnection({
   database: config.database,
 });
 
+const maxtokens = config.max_tokens;
+
 // Replace these values with your own API credentials
 const apiKey = config.apiKey;
 const chatId = config.chatId; // replace with your actual chat ID obtained from ChatGPT dashboard
@@ -126,7 +128,9 @@ async function fetchMessagesFromDatabase(messageFrom, chatName, messageAuthor) {
     
 // Function to process incoming WhatsApp message and send a reply
 async function processWhatsAppChatMessage(jsonMessageText) {
-  const apiKey = '--SECRET--'; // Replace with your OpenAI API key
+
+  const apiKey = '--SECRET--';
+ // const apiKey = ''; // Replace with your OpenAI API key
   //  const chatId = 'Altodock'; // replace with your actual chat ID obtained from ChatGPT dashboard
     
     // Parse the incoming JSON string
@@ -181,7 +185,7 @@ async function processWhatsAppChatMessage(jsonMessageText) {
         const postData = {
           model: "gpt-3.5-turbo",
       //   prompt : messagePrompt,
-          max_tokens: 150,
+          max_tokens:  maxtokens,
           temperature: 0.7, //0.7,
           top_p: 1,
           messages: messageList

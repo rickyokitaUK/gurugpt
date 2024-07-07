@@ -23,7 +23,7 @@ function init(client) {
 
 async function fetchSubscribedChatIdsFromDatabase() {
     return new Promise((resolve, reject) => {
-        const query = 'SELECT chatId, first_name, last_updated, type FROM subscriptions';
+        const query = 'SELECT chatId, first_name, mobile_number, last_updated, type FROM subscriptions';
         
         connection.query(query, (err, rows) => {
             if (err) {
