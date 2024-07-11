@@ -129,7 +129,7 @@ async function fetchMessagesFromDatabase(messageFrom, chatName, messageAuthor) {
 // Function to process incoming WhatsApp message and send a reply
 async function processWhatsAppChatMessage(jsonMessageText) {
 
-  const apiKey = '--SECRET--';
+  const apiKey = config.apiKey; // Replace with your OpenAI API key
  // const apiKey = ''; // Replace with your OpenAI API key
   //  const chatId = 'Altodock'; // replace with your actual chat ID obtained from ChatGPT dashboard
     

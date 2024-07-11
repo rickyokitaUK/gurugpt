@@ -1,6 +1,6 @@
 module.exports = {
     chatbotName: 'Guru',
-    apiKey: 'sk-...lygb',
+    apiKey: '--SECRET--',
     chatId: 'Altodock',
     url: 'https://api.openai.com/v1/chat/completions',
     chatUrl: 'https://api.openai.com/v1/chat/completions',

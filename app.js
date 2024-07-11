@@ -34,7 +34,9 @@ const timeoutMax = 180000; // Adjust the timeout value as needed
 // Assuming client.initialize() needs to be awaited
 async function startClient() {
   try {
-    await client.initialize();
+    await client.initialize().catch(error => {
+      console.error('Client initialization error:', error);
+  });
   } catch (error) {
     console.error(error);
     // Optionally add more detailed logging here
@@ -44,7 +46,7 @@ async function startClient() {
 startClient();
 
 async function testingSendMessageToChatbot(message) {
-  const apiKey = '-- SECRET KEY --'; // Replace with your OpenAI API key
+  const apiKey = config.apiKey; // Replace with your OpenAI API key
   const url = config.chatUrl; //'https://api.openai.com/v1/chat/completions';
   const messagePromptPath = config.messagePromptPath;
   let messagePrompt = config.messagePrompt;
@@ -136,7 +138,9 @@ function updateBroadcastJobs(updatedScheduleTimes) {
       // Schedule the updated broadcast
       const job = schedule.scheduleJob('broadcast_${index}', jobTime, async () => {
           
-          await broadcast.sendBroadcastMessageToSubscribed(config.broadcastMessage);
+        const broadcastMessagePath = './broadcastMessage.txt';
+        const broadcastMessage = fs.readFileSync(broadcastMessagePath, 'utf8');
+        await broadcast.sendBroadcastMessageToSubscribed(broadcastMessage);
 
           // You can add logging or other actions here if needed
       });
@@ -362,8 +366,9 @@ client.on('message', async message => {
 
     //if (chat.isGroup && chat.name.includes('Trade28') || message.from.includes('60319421') || message.from.includes('51912505')) {
     // Check if the chat is whitelisted (AI mode enabled)
-    if ((whitelist.has( chat.name.trim()) || whitelist.has(message.from.trim())) 
-        && lowercaseBody !== 'ai on' && lowercaseBody !== 'hey wise!' 
+    if (whitelist.has( chat.name.trim()) || whitelist.has(message.from.trim())){
+
+        if (lowercaseBody !== 'ai on' && lowercaseBody !== 'hey wise!' 
         && lowercaseBody !== 'ai off' && lowercaseBody !== 'thanks wise!') {
         try {            
               console.log("WhiteList Accepted. Ready for chat");
@@ -389,6 +394,9 @@ client.on('message', async message => {
                 console.error("An error occurred:", error);
                 // Handle the error
             }
+        }else{
+          console.log("Access Authorizated. AI chatting activated");
+        }
     }else{
       console.log("Permission Denied. AI chatting blocked");
     }
